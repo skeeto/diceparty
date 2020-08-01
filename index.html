@@ -135,10 +135,13 @@ async function poll() {
     for (;;) {
         let result = await get(rolls.length)
         if (result.length == 0) {
+            rolls = []
             await sleep(5)
             continue
         }
         for (let i = 0; i < result.length; i++) {
+            rolls.push(result[i])
+
             let date = new Date(result[i].when)
             let value = parseInt(result[i].result)
 
@@ -173,7 +176,6 @@ async function poll() {
 
             log.prepend(line)
         }
-        rolls = rolls.concat(result)
     }
 }
 
