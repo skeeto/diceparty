@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<title>Multiplayer Fudge Dice Roller</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+html {
+    font-family: sans-serif;
+    margin: auto;
+    max-width: 600px;
+}
+#login {
+    text-align: center;
+}
+.logged-out {
+    display: none;
+}
+.disable {
+    color: #ccc;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+#roll button {
+    display: block;
+    font-size: 40px;
+    margin: 0 auto;
+    user-select: none;
+}
+#log {
+    background: #ffd;
+    border: 1px solid black;
+    font-size: 16px;
+    line-height: 1.5;
+    margin-top: 10px;
+    padding: 5px;
+}
+#log .when {
+    color: #999;
+    font-family: monospace;
+    margin-right: 8px;
+}
+#log .who {
+    font-weight: bold;
+}
+#log .value {
+    font-family: monospace;
+    font-weight: bold;
+}
+</style>
+<div id="login">
+    <span>Who are you?</span>
+    <input></input>
+    <button>login</button>
+</div>
+<div class="logged-out" id="roll">
+    <button>roll</button>
+</div>
+<div id="log"></div>
+<script>
+let name = null
+let rolls = []
+
+document.querySelector('#login button').onclick = login
+document.querySelector('#login input').onkeyup = function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault()
+        login()
+    }
+}
+    
+function login() {
+    let input = document.querySelector('#login input').value
+    if (input) {
+        name = input
+        let form = document.querySelector('#login')
+        form.parentNode.removeChild(form)
+        document.querySelector('#roll').classList.remove('logged-out')
+    }
+}
+
+document.querySelector('#roll button').onclick = function() {
+    let xhr = new XMLHttpRequest()
+    xhr.open('GET', '/roll?' + name)
+    xhr.send()
+    let button = document.querySelector('#roll button')
+    button.classList.add('disable')
+    setTimeout(function() {
+        button.classList.remove('disable')
+    }, 1000)
+}
+
+function sleep(seconds) {
+    return new Promise(function(resolve) {
+        setTimeout(resolve, seconds*1000)
+    })
+}
+
+function get(n) {
+    return new Promise(function(resolve, reject) {
+        let xhr = new XMLHttpRequest()
+        xhr.open("GET", "/poll?" + n, true)
+        xhr.onload = function() {
+            resolve(JSON.parse(xhr.responseText))
+        }
+        xhr.onerror = function() {
+            resolve([])
+        }
+        xhr.send()
+    })
+}
+
+function pad(s) {
+    return ('0' + s).slice(-2)
+}
+
+function prefix(v) {
+    if (v >= 0) {
+        return '+' + v
+    }
+    return '' + v
+}
+
+async function poll() {
+    let log = document.querySelector('#log')
+    let table = [
+        'Abysmal',   // -4
+        'Terrible',  // -3
+        'Poor',      // -2
+        'Mediocre',  // -1
+        'Fair',      // +0
+        'Good',      // +1
+        'Great',     // +2
+        'Superb',    // +3
+        'Legendary'  // +4
+    ]
+    for (;;) {
+        let result = await get(rolls.length)
+        if (result.length == 0) {
+            await sleep(5)
+            continue
+        }
+        for (let i = 0; i < result.length; i++) {
+            let date = new Date(result[i].when)
+            let value = parseInt(result[i].result)
+
+            let line = document.createElement('div')
+            line.classList.add('roll')
+
+            let when = document.createElement('span')
+            when.classList.add('when')
+            when.textContent = date.getHours() + ':' + 
+                               pad(date.getMinutes()) + ':' + 
+                               pad(date.getSeconds())
+
+            let who = document.createElement('span')
+            who.classList.add('who')
+            who.textContent = result[i].who
+
+            let valueSpan = document.createElement('span')
+            valueSpan.classList.add('value')
+            valueSpan.textContent = prefix(value)
+
+            let desc = document.createElement('span')
+            desc.classList.add('desc')
+            desc.textContent = table[value+4]
+
+            line.appendChild(when)
+            line.appendChild(who)
+            line.appendChild(document.createTextNode(" rolled "))
+            line.appendChild(valueSpan)
+            line.appendChild(document.createTextNode(" ("))
+            line.appendChild(desc)
+            line.appendChild(document.createTextNode(")"))
+
+            log.prepend(line)
+        }
+        rolls = rolls.concat(result)
+    }
+}
+
+poll()
+</script>
