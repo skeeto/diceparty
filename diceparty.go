@@ -32,12 +32,14 @@ func handleRoll(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		who = r.URL.RawQuery
 	}
-	rolls = append(rolls, roll{
+	roll := roll{
 		ID:     len(rolls),
 		When:   time.Now(),
 		Who:    who,
 		Result: roller.Roll(),
-	})
+	}
+	rolls = append(rolls, roll)
+	log.Printf("ROLL %s %s %+d", r.RemoteAddr, who, roll.Result)
 	update.Broadcast()
 }
 
@@ -51,6 +53,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	}
 	begin := int(begin64)
 
+	log.Println("POLL", r.RemoteAddr, begin)
 	mutex.Lock()
 	defer mutex.Unlock()
 	for begin >= len(rolls) {
@@ -61,7 +64,12 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHTML(w http.ResponseWriter, r *http.Request) {
-	w.Write(pageHTML)
+	if r.URL.Path == "/" {
+		log.Println("/", r.RemoteAddr)
+		w.Write(pageHTML)
+	} else {
+		w.WriteHeader(404)
+	}
 }
 
 func loadHTML() error {
