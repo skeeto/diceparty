@@ -25,13 +25,9 @@ var roller = newDice()
 var update = sync.NewCond(&mutex)
 var pageHTML []byte
 
-func handleRoll(w http.ResponseWriter, r *http.Request) {
+func generateRoll(who string) roll {
 	mutex.Lock()
 	defer mutex.Unlock()
-	who, err := url.PathUnescape(r.URL.RawQuery)
-	if err != nil {
-		who = r.URL.RawQuery
-	}
 	roll := roll{
 		ID:     len(rolls),
 		When:   time.Now(),
@@ -39,8 +35,27 @@ func handleRoll(w http.ResponseWriter, r *http.Request) {
 		Result: roller.Roll(),
 	}
 	rolls = append(rolls, roll)
-	log.Printf("ROLL %s %s %+d", r.RemoteAddr, who, roll.Result)
 	update.Broadcast()
+	return roll
+}
+
+func handleRoll(w http.ResponseWriter, r *http.Request) {
+	who, err := url.PathUnescape(r.URL.RawQuery)
+	if err != nil {
+		who = r.URL.RawQuery
+	}
+	roll := generateRoll(who)
+	log.Printf("ROLL %s %s %+d", r.RemoteAddr, who, roll.Result)
+}
+
+func pollResponse(begin int) []byte {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for begin >= len(rolls) {
+		update.Wait()
+	}
+	buf, _ := json.Marshal(rolls[begin:])
+	return buf
 }
 
 func handlePoll(w http.ResponseWriter, r *http.Request) {
@@ -54,12 +69,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	begin := int(begin64)
 
 	log.Println("POLL", r.RemoteAddr, begin)
-	mutex.Lock()
-	defer mutex.Unlock()
-	for begin >= len(rolls) {
-		update.Wait()
-	}
-	buf, _ := json.Marshal(rolls[begin:])
+	buf := pollResponse(begin)
 	w.Write(buf)
 }
 
