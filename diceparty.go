@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -98,11 +99,14 @@ func loadHTML() error {
 }
 
 func main() {
+	addr := flag.String("addr", ":8080", "Server's host address")
+	flag.Parse()
+
 	if err := loadHTML(); err != nil {
 		log.Fatal(err)
 	}
 	http.HandleFunc("/", handleHTML)
 	http.HandleFunc("/roll", handleRoll)
 	http.HandleFunc("/poll", handlePoll)
-	http.ListenAndServe(":8080", nil)
+	log.Fatal(http.ListenAndServe(*addr, nil))
 }

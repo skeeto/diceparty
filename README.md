@@ -5,7 +5,7 @@ dice are supported at the moment.
 
 ```
 go build
-./diceparty
+./diceparty -addr :8080
 ```
 
 Then visit http://localhost:8080/.
